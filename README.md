@@ -77,6 +77,8 @@ dotnet build .\ImageStitcher.sln -c Release
 
 ## 界面说明
 
+![替代文字](563e8b8c2095e638ad73be6e8a343d8b1a7b75c3316573983ed1fca93a8bbf4f.png "图片标题")
+
 ```
 顶部工具区（高度 196 px，三组并排）
 ├─ 图像来源    加载图1 · 加载图2 · 交换 · 清空，以及图1 / 图2 的文件名与尺寸
