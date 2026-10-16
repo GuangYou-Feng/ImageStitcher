@@ -9,23 +9,22 @@ using OpenCvSharp.Features2D;
 namespace ImageStitcher.Stitching
 {
     /// <summary>
-    /// Feature based automatic panorama stitcher.
+    /// 基于特征点的自动全景拼接器。
     ///
-    /// Pipeline: grayscale -> detect/describe (SIFT or ORB) -> brute force knn match
-    /// -> Lowe ratio test -> RANSAC homography -> warp onto a common canvas ->
-    /// distance-weighted feather blend.
+    /// 处理流程：灰度化 -> 检测与描述（SIFT 或 ORB）-> 暴力 knn 匹配
+    /// -> Lowe 比值测试 -> RANSAC 单应矩阵 -> 变换到统一画布
+    /// -> 距离加权羽化融合。
     /// </summary>
     public static class AutoStitcher
     {
         /// <summary>
-        /// Stitch <paramref name="movingImage"/> onto <paramref name="referenceImage"/>.
-        /// The reference image defines the coordinate frame of the panorama.
+        /// 把 <paramref name="movingImage"/> 拼接 <paramref name="referenceImage"/> 上。
+        /// 基准图像决定全景图的坐标系。
         /// </summary>
         /// <remarks>
-        /// Both inputs are locked and drawn, so they belong to this call for its duration.
-        /// GDI+ bitmaps are not thread safe: passing an image that the UI is painting at
-        /// the same time fails intermittently with "位图区域已被锁定". Callers that keep
-        /// painting their images must hand over private copies.
+        /// 两张输入图像在此调用期间会被锁定并绘制，因此在这段时间内由本方法独占。
+        /// GDI+ 位图不是线程安全的：如果传入的图像同时正被界面绘制，会间歇性地抛出
+        /// “位图区域已被锁定”。需要持续绘制这些图像的调用方必须先传入私有副本。
         /// </remarks>
         public static StitchResult Stitch(Bitmap referenceImage, Bitmap movingImage, StitchOptions options)
         {
@@ -69,8 +68,8 @@ namespace ImageStitcher.Stitching
                             return result;
                         }
 
-                        // Descriptors of the moving image are the query set, so the
-                        // homography we fit maps moving -> reference directly.
+                        // 待拼接图像的特征描述子作为查询集，这样拟合出的单应矩阵
+                        // 直接把“待拼接图像”映射到“基准图像”。
                         List<Point2d> movingPoints = new List<Point2d>();
                         List<Point2d> referencePoints = new List<Point2d>();
                         List<PointF> movingPreview = new List<PointF>();
@@ -121,7 +120,7 @@ namespace ImageStitcher.Stitching
                             result.Success = true;
                             result.Message = "拼接成功。" + result.Summary;
 
-                            // Always produced; the caller decides whether to display it.
+                            // 始终会生成，是否显示由调用方决定。
                             result.MatchPreview = MatchPreviewRenderer.Render(
                                 movingImage, referenceImage,
                                 result.MovingPoints, result.ReferencePoints, result.InlierFlags);
@@ -173,7 +172,7 @@ namespace ImageStitcher.Stitching
         {
             if (options.Algorithm == StitchAlgorithm.Orb)
             {
-                // Argument order follows OpenCV: edgeThreshold comes before firstLevel.
+                // 参数顺序与 OpenCV 保持一致：edgeThreshold 在 firstLevel 之前。
                 return ORB.Create(
                     nFeatures: options.OrbFeatureCount,
                     scaleFactor: 1.2f,
@@ -201,7 +200,7 @@ namespace ImageStitcher.Stitching
             List<Point2d> movingPoints, List<Point2d> referencePoints,
             List<PointF> movingPreview, List<PointF> referencePreview)
         {
-            // ORB produces binary descriptors, so it needs the Hamming metric.
+            // ORB 生成的是二进制描述子，因此需要使用汉明距离度量。
             NormTypes norm = options.Algorithm == StitchAlgorithm.Orb ? NormTypes.Hamming : NormTypes.L2;
 
             using (BFMatcher matcher = new BFMatcher(norm, false))
@@ -243,7 +242,7 @@ namespace ImageStitcher.Stitching
                 }
                 catch (Exception)
                 {
-                    // Mask shape unexpected: treat the match as an outlier rather than aborting.
+                    // 掩码形状不符合预期：把该匹配视为外点，而不是直接中断整个流程。
                     flag = 0;
                 }
                 flags[i] = flag != 0;
@@ -254,10 +253,9 @@ namespace ImageStitcher.Stitching
         }
 
         /// <summary>
-        /// Warps the moving image into the reference frame, grows the canvas to hold
-        /// both, and blends the overlap with distance weighted feathering.
-        /// Returns null (with <see cref="StitchResult.Message"/> set) when the result
-        /// would be unreasonable in size.
+        /// 把待拼接图像变换到基准图像的坐标系中，扩展画布以容纳两者，并以距离加权
+        /// 羽化的方式融合重叠区域。
+        /// 当结果尺寸不合理时返回 null（同时设置 <see cref="StitchResult.Message"/>）。
         /// </summary>
         private static Bitmap ComposePanorama(Mat referenceMat, Mat movingMat, Mat homography,
             StitchOptions options, StitchResult result)
@@ -306,7 +304,7 @@ namespace ImageStitcher.Stitching
                 return null;
             }
 
-            // Fold the canvas offset into the homography translation column.
+            // 把画布偏移量合并到单应矩阵的平移列中。
             homography.Set<double>(0, 2, homography.Get<double>(0, 2) + offsetX);
             homography.Set<double>(1, 2, homography.Get<double>(1, 2) + offsetY);
 
@@ -351,16 +349,14 @@ namespace ImageStitcher.Stitching
         }
 
         /// <summary>
-        /// Distance weighted feather blend.
+        /// 距离加权羽化融合。
         ///
-        /// Each mask is converted to a distance-to-edge map, clamped to the requested
-        /// feather width, and used as that layer's weight. Weight = distance / total
-        /// distance, so the seam lands where the two distances are equal and each layer
-        /// keeps full weight where it is alone.
+        /// 每个掩码都会转换成到边缘的距离图，并按请求的羽化宽度截断，作为该层的权重。
+        /// 权重 = 距离 / 总距离，因此接缝会落在两层距离相等的位置，而某一层单独覆盖
+        /// 的区域仍保持满权重。
         ///
-        /// The denominator is seeded with an epsilon before accumulating. OpenCV's
-        /// divide returns Infinity for a zero denominator, which would poison the whole
-        /// float image, so it must never be zero.
+        /// 累加之前分母先用一个极小值初始化。OpenCV 的除法在分母为零时会返回
+        /// Infinity，那会污染整幅浮点图像，因此分母绝不能为零。
         /// </summary>
         private static Mat FeatherBlend(Mat baseBgr, Mat baseMask, Mat warpBgr, Mat warpMask, double featherWidth)
         {
@@ -373,8 +369,8 @@ namespace ImageStitcher.Stitching
                 Cv2.DistanceTransform(baseMask, baseDistance, DistanceTypes.L2, DistanceTransformMasks.Mask3);
                 Cv2.DistanceTransform(warpMask, warpDistance, DistanceTypes.L2, DistanceTransformMasks.Mask3);
 
-                // Clamp so the transition keeps a fixed width and the values stay bounded
-                // even when a layer covers the whole canvas (no zero pixel to measure from).
+                // 做截断是为了让过渡区保持固定宽度，同时让数值保持有界——即使某一层
+                // 覆盖了整块画布（没有可度量的零值像素）也不会出问题。
                 double cap = featherWidth > 0 ? featherWidth : 1.0;
                 using (Mat ceiling = new Mat(height, width, MatType.CV_32FC1, new Scalar(cap)))
                 {

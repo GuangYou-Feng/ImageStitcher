@@ -21,6 +21,28 @@
   </ItemGroup>
 
   <!--
+    DICOM support. fo-dicom is ABI-stable across 5.x, so the codecs package is pinned
+    to the newest build against the 5.2.x core rather than letting NuGet float it.
+    fo-dicom.Imaging.Desktop brings the System.Drawing image manager that lets the
+    rendered pixel data be handed straight to a Bitmap.
+  -->
+  <ItemGroup>
+    <PackageReference Include="fo-dicom" Version="5.2.6" GeneratePathProperty="true" />
+    <PackageReference Include="fo-dicom.Imaging.Desktop" Version="5.2.6" />
+    <PackageReference Include="fo-dicom.Codecs" Version="5.16.7" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <!--
+    fo-dicom.Codecs targets netstandard2.0, so NuGet's RID-specific native asset is
+    not copied into the output folder of a plain net462 build. Dicom.Native.dll holds
+    the JPEG-LS / JPEG 2000 / JPEG lossless decoders, so copy the x64 payload next to
+    the executable the same way the OpenCV native is handled below.
+  -->
+  <ItemGroup>
+    <Content Include="$(Pkgfo-dicom_Codecs)\runtimes\win-x64\native\Dicom.Native.dll" Link="Dicom.Native.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!--
     OpenCvSharp4.runtime.win ships build/*.props that copy the native payload into
     dll\x86 and dll\x64 subfolders of the output. .NET Framework's default DLL search
     only looks next to the executable, so those copies are never loaded - and the x86
@@ -32,6 +54,9 @@
     <Content Remove="$(PkgOpenCvSharp4_runtime_win)\runtimes\win-x86\native\*.dll" />
     <Content Remove="$(PkgOpenCvSharp4_runtime_win)\runtimes\win-x64\native\*.dll" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Remove="C:\Users\admin\.nuget\packages\fo-dicom.codecs\5.16.7\runtimes\win-x64\native\Dicom.Native.dll" />
+  </ItemGroup>
 
   <!--
     Copy the x64 natives next to the executable, which is where the default Windows
@@ -42,7 +67,7 @@
       <OpenCvNativeFile Include="$(PkgOpenCvSharp4_runtime_win)\runtimes\win-x64\native\*.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(OpenCvNativeFile)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
-    <Message Importance="high" Text="OpenCV native: copied @(OpenCvNativeFile->Count()) file(s) to $(OutDir)" />
+    <Message Importance="high" Text="OpenCV native: copied @(OpenCvNativeFile-&gt;Count()) file(s) to $(OutDir)" />
   </Target>
 
 </Project>

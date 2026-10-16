@@ -7,18 +7,17 @@ using OpenCvSharp;
 namespace ImageStitcher.Imaging
 {
     /// <summary>
-    /// Converts between <see cref="Bitmap"/> and <see cref="Mat"/> without taking a
-    /// dependency on OpenCvSharp4.Extensions, which would pull System.Drawing.Common
-    /// into a .NET Framework build and fight with the System.Drawing in the GAC.
+    /// 在 <see cref="Bitmap"/> 与 <see cref="Mat"/> 之间相互转换，同时不依赖
+    /// OpenCvSharp4.Extensions —— 后者会把 System.Drawing.Common 引入 .NET Framework
+    /// 项目，与 GAC 中的 System.Drawing 发生冲突。
     /// </summary>
     public static class MatConverter
     {
-        /// <summary>Copies a GDI+ bitmap into a new 8UC3 BGR matrix.</summary>
+        /// <summary>把 GDI+ 位图复制到一个新的 8UC3 BGR 矩阵中。</summary>
         /// <remarks>
-        /// The matrix owns its own pixels, but the copy is taken by locking the source with
-        /// <see cref="Bitmap.LockBits"/> whenever it is already 24bpp. The source must
-        /// therefore not be read from another thread while this runs - a concurrent paint
-        /// raises "位图区域已被锁定".
+        /// 返回的矩阵拥有自己的像素数据，但源位图本身已经是 24bpp 时，复制过程会通过
+        /// <see cref="Bitmap.LockBits"/> 锁定它。因此在此期间不能在其他线程读取该源
+        /// 位图，否则并发的绘制会抛出“位图区域已被锁定”。
         /// </remarks>
         public static Mat ToMat(Bitmap bitmap)
         {
@@ -39,7 +38,7 @@ namespace ImageStitcher.Imaging
                     ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
                 try
                 {
-                    // FromPixelData wraps the locked memory, so clone before unlocking.
+                    // FromPixelData 只是包装锁定的内存，因此必须在解锁之前完成克隆。
                     using (Mat view = Mat.FromPixelData(data.Height, data.Width,
                                MatType.CV_8UC3, data.Scan0, data.Stride))
                     {
@@ -57,7 +56,7 @@ namespace ImageStitcher.Imaging
             }
         }
 
-        /// <summary>Copies a matrix into a new 24bpp bitmap, honouring row stride.</summary>
+        /// <summary>把矩阵复制到一个新的 24bpp 位图中，并正确处理行跨距。</summary>
         public static Bitmap ToBitmap(Mat mat)
         {
             if (mat == null) throw new ArgumentNullException("mat");

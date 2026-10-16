@@ -3,7 +3,7 @@ using System.Drawing;
 
 namespace ImageStitcher.Stitching
 {
-    /// <summary>Outcome of one automatic stitching run.</summary>
+    /// <summary>一次自动拼接的结果。</summary>
     public sealed class StitchResult
     {
         public StitchResult()
@@ -14,16 +14,16 @@ namespace ImageStitcher.Stitching
             InlierFlags = new bool[0];
         }
 
-        /// <summary>True when <see cref="Image"/> holds a usable panorama.</summary>
+        /// <summary>当 <see cref="Image"/> 中包含可用的全景图时为 true。</summary>
         public bool Success { get; set; }
 
-        /// <summary>Human readable explanation, always set (success or failure).</summary>
+        /// <summary>面向用户的说明文字，无论成功或失败都会赋值。</summary>
         public string Message { get; set; }
 
-        /// <summary>The stitched panorama. The caller owns it.</summary>
+        /// <summary>拼接得到的全景图，所有权归调用方。</summary>
         public Bitmap Image { get; set; }
 
-        /// <summary>Side-by-side rendering of the keypoint matches. The caller owns it.</summary>
+        /// <summary>特征点匹配的左右对照图，所有权归调用方。</summary>
         public Bitmap MatchPreview { get; set; }
 
         public StitchAlgorithm Algorithm { get; set; }
@@ -33,21 +33,21 @@ namespace ImageStitcher.Stitching
         public int GoodMatches { get; set; }
         public int Inliers { get; set; }
 
-        /// <summary>Number of pixels covered by both images after warping.</summary>
+        /// <summary>变换之后两张图像共同覆盖的像素数量。</summary>
         public long OverlapPixels { get; set; }
 
-        /// <summary>Matched points in the moving image, used by the preview renderer.</summary>
+        /// <summary>待拼接图像中的匹配点，供预览渲染使用。</summary>
         public PointF[] MovingPoints { get; set; }
 
-        /// <summary>Matched points in the reference image, one per entry of <see cref="MovingPoints"/>.</summary>
+        /// <summary>基准图像中的匹配点，与 <see cref="MovingPoints"/> 一一对应。</summary>
         public PointF[] ReferencePoints { get; set; }
 
-        /// <summary>True where the corresponding match survived RANSAC.</summary>
+        /// <summary>对应匹配是否通过 RANSAC 筛选，通过处为 true。</summary>
         public bool[] InlierFlags { get; set; }
 
         public TimeSpan Elapsed { get; set; }
 
-        /// <summary>Compact one line summary for the status bar.</summary>
+        /// <summary>用于状态栏的单行简要结果。</summary>
         public string Summary
         {
             get

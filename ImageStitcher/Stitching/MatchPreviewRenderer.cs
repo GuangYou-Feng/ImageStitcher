@@ -6,9 +6,9 @@ using System.Drawing.Imaging;
 namespace ImageStitcher.Stitching
 {
     /// <summary>
-    /// Draws the two source images side by side with a line per keypoint match.
-    /// RANSAC outliers are drawn first in red, inliers on top in green, which makes
-    /// it obvious at a glance whether the homography is trustworthy.
+    /// 把两张源图像并排绘制，并为每一对特征点匹配画一条连线。
+    /// RANSAC 外点先用红色绘制，内点再覆盖在上面用绿色绘制，这样一眼就能看出
+    /// 单应矩阵是否可信。
     /// </summary>
     internal static class MatchPreviewRenderer
     {
@@ -17,11 +17,11 @@ namespace ImageStitcher.Stitching
         private const int DefaultMaxWidth = 1800;
 
         /// <summary>
-        /// Draws the two source images side by side with the match lines over them.
+        /// 把两张源图像并排绘制，并在其上叠加匹配连线。
         /// </summary>
         /// <remarks>
-        /// Both images are read with <see cref="Graphics.DrawImage(Image, RectangleF)"/>, so
-        /// they must not be painted by another thread at the same time.
+        /// 两张图像都通过 <see cref="Graphics.DrawImage(Image, RectangleF)"/> 读取，
+        /// 因此绘制期间不能有另一个线程同时绘制它们。
         /// </remarks>
         public static Bitmap Render(
             Bitmap left, Bitmap right,
@@ -65,7 +65,7 @@ namespace ImageStitcher.Stitching
                     using (Pen outlierPen = new Pen(Color.FromArgb(150, 235, 64, 52), 1f))
                     using (Pen inlierPen = new Pen(Color.FromArgb(200, 60, 220, 90), 1.2f))
                     {
-                        // Pass 1: outliers, so inliers are never hidden behind them.
+                        // 第一遍画外点，这样内点就不会被它们盖住。
                         for (int pass = 0; pass < 2; pass++)
                         {
                             bool wantInlier = pass == 1;

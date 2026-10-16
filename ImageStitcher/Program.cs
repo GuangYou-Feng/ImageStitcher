@@ -49,7 +49,7 @@ namespace ImageStitcher
         }
 
         /// <summary>
-        /// Walks the exception chain looking for the signatures of a failed native load.
+        /// 沿异常链逐层查找本机库加载失败的特征异常。
         /// </summary>
         internal static bool IsNativeLoadFailure(Exception error)
         {

@@ -2,25 +2,27 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace ImageStitcher.Controls
 {
     /// <summary>
-    /// Manual stitching surface: shows two images that the user drags into alignment.
+    /// 手动拼接画布：显示两张图像，由用户拖动它们对齐。
     ///
-    /// Supported interactions
-    ///   left drag          move a layer (grab whichever layer is under the cursor)
-    ///   double click       bring the clicked layer to the front
-    ///   middle drag        pan the view
-    ///   mouse wheel        zoom about the cursor
+    /// 支持的交互方式
+    ///   左键拖动          移动图层（抓住光标下方的那一层）
+    ///   方向键            以上层图层为单位微调一个像素（按住 Shift 为十个像素）
+    ///   双击              把被点击的图层移到最上层
+    ///   中键拖动          平移视图
+    ///   鼠标滚轮          以光标位置为中心缩放
     ///
-    /// Z-order is explicit (<see cref="TopLayer"/>), the front layer can be drawn
-    /// semi transparent to line features up (<see cref="TopOpacityPercent"/>), and it
-    /// can be rotated for images with a slight angular difference.
+    /// 叠放顺序是显式控制的（<see cref="TopLayer"/>），上层图层可以半透明绘制以便
+    /// 对齐特征（<see cref="TopOpacityPercent"/>），也可以旋转，用于处理存在轻微
+    /// 角度差异的图像。
     ///
-    /// The control does not own the bitmaps handed to <see cref="SetImages"/>;
-    /// call <see cref="ClearImages"/> before disposing them.
+    /// 本控件不接管交给 <see cref="SetImages"/> 的位图；在释放这些位图之前请先调用
+    /// <see cref="ClearImages"/>。
     /// </summary>
     [System.ComponentModel.DesignerCategory("Code")]
     public sealed class ManualStitchCanvas : Control
@@ -50,6 +52,7 @@ namespace ImageStitcher.Controls
 
         private int _topLayer;
         private int _topOpacityPercent = 50;
+        private int _nudgeAmount = 1;
         private float _zoom = 1f;
         private PointF _pan;
 
@@ -60,9 +63,9 @@ namespace ImageStitcher.Controls
         private bool _panning;
 
         /// <summary>
-        /// Set once the user zooms or pans by hand. Until then the view keeps re-fitting
-        /// itself whenever the control is resized, which matters because the canvas is
-        /// created hidden and only receives its real size when manual mode is entered.
+        /// 一旦用户手动缩放或平移过视图就置位。在那之前，控件尺寸变化时视图会持续
+        /// 重新自适应——这一点很重要，因为画布创建时是隐藏的，只有进入手动模式时
+        /// 才会获得真实尺寸。
         /// </summary>
         private bool _userAdjustedView;
         private Point _panStartMouse;
@@ -70,7 +73,7 @@ namespace ImageStitcher.Controls
 
         private bool _needsFit;
 
-        /// <summary>Raised when the front layer changes, including via double click.</summary>
+        /// <summary>上层图层发生变化时触发，通过双击改变时也会触发。</summary>
         public event EventHandler TopLayerChanged;
 
         public ManualStitchCanvas()
@@ -88,15 +91,15 @@ namespace ImageStitcher.Controls
             TabStop = true;
         }
 
-        #region public API
+        #region 公共 API
 
-        /// <summary>True when both images are present.</summary>
+        /// <summary>两张图像都已加载时为 true。</summary>
         public bool HasImages
         {
             get { return _layers[0].Image != null && _layers[1].Image != null; }
         }
 
-        /// <summary>Index of the layer drawn on top: 0 = 图1, 1 = 图2.</summary>
+        /// <summary>绘制在最上层的图层索引：0 = 图1，1 = 图2。</summary>
         public int TopLayer
         {
             get { return _topLayer; }
@@ -111,7 +114,7 @@ namespace ImageStitcher.Controls
             }
         }
 
-        /// <summary>Opacity of the front layer, 0..100. 100 means fully opaque.</summary>
+        /// <summary>上层图层的不透明度，取值 0..100。100 表示完全不透明。</summary>
         public int TopOpacityPercent
         {
             get { return _topOpacityPercent; }
@@ -124,7 +127,7 @@ namespace ImageStitcher.Controls
             }
         }
 
-        /// <summary>Rotation of the front layer in degrees.</summary>
+        /// <summary>上层图层的旋转角度，单位为度。</summary>
         public float TopRotation
         {
             get { return _layers[_topLayer].Rotation; }
@@ -136,13 +139,13 @@ namespace ImageStitcher.Controls
             return _layers[ClampIndex(index)].Rotation;
         }
 
-        /// <summary>Top-left position of a layer in canvas coordinates.</summary>
+        /// <summary>图层在画布坐标系中的左上角位置。</summary>
         public PointF GetOffset(int index)
         {
             return _layers[ClampIndex(index)].Offset;
         }
 
-        /// <summary>Moves a layer. The canvas never clamps this; the user drags freely.</summary>
+        /// <summary>移动某个图层。画布不会对此做任何限制，用户可自由拖动。</summary>
         public void SetOffset(int index, PointF offset)
         {
             Layer layer = _layers[ClampIndex(index)];
@@ -160,10 +163,47 @@ namespace ImageStitcher.Controls
             Invalidate();
         }
 
-        /// <summary>Rotates the front layer by a relative amount.</summary>
+        /// <summary>按相对角度旋转上层图层。</summary>
         public void RotateTopBy(float deltaDegrees)
         {
             SetRotation(_topLayer, _layers[_topLayer].Rotation + deltaDegrees);
+        }
+
+        /// <summary>
+        /// 按一次方向键所移动的距离，单位为画布像素，始终取整数，这样连续按键的结果
+        /// 是可预期的，而不会累积舍入误差。
+        /// </summary>
+        public int NudgeAmount
+        {
+            get { return _nudgeAmount; }
+            set
+            {
+                int clamped = Math.Max(1, Math.Min(500, value));
+                _nudgeAmount = clamped;
+            }
+        }
+
+        /// <summary>
+        /// 按相对距离移动上层图层，单位为画布像素。方向键和微调按钮都走这条路径：
+        /// 拖动适合粗略对齐，但一个像素的误差用鼠标几乎不可能命中。
+        /// </summary>
+        public void NudgeTopBy(float dx, float dy)
+        {
+            if (!HasImages || (dx == 0f && dy == 0f)) return;
+
+            Layer layer = _layers[_topLayer];
+            layer.Offset = new PointF(layer.Offset.X + dx, layer.Offset.Y + dy);
+            Invalidate();
+        }
+
+        /// <summary>按相对距离移动指定图层，供需要操作特定图层的调用方使用。</summary>
+        public void NudgeBy(int index, float dx, float dy)
+        {
+            Layer layer = _layers[ClampIndex(index)];
+            if (layer.Image == null || (dx == 0f && dy == 0f)) return;
+
+            layer.Offset = new PointF(layer.Offset.X + dx, layer.Offset.Y + dy);
+            Invalidate();
         }
 
         public void BringToFront(int index)
@@ -177,9 +217,8 @@ namespace ImageStitcher.Controls
         }
 
         /// <summary>
-        /// Assigns the two images and arranges them side by side with roughly a 30%
-        /// horizontal overlap, which is a comfortable starting point for alignment.
-        /// Ownership of the bitmaps stays with the caller.
+        /// 设置两张图像，并把它们并排放置，水平方向大致重叠 30%，这是一个比较舒适的
+        /// 对齐起始状态。位图的所有权仍归调用方所有。
         /// </summary>
         public void SetImages(Bitmap imageA, Bitmap imageB)
         {
@@ -216,7 +255,7 @@ namespace ImageStitcher.Controls
             Invalidate();
         }
 
-        /// <summary>Drops the image references without disposing them.</summary>
+        /// <summary>放弃对图像的引用，但不释放它们。</summary>
         public void ClearImages()
         {
             _layers[0].Image = null;
@@ -230,7 +269,7 @@ namespace ImageStitcher.Controls
             Invalidate();
         }
 
-        /// <summary>Restores the initial overlapped arrangement and fits the view.</summary>
+        /// <summary>恢复初始的重叠摆放方式并让视图自适应。</summary>
         public void ResetPositions()
         {
             Bitmap a = _layers[0].Image;
@@ -239,7 +278,7 @@ namespace ImageStitcher.Controls
             SetImages(a, b);
         }
 
-        /// <summary>Zooms and pans so the whole composition is visible.</summary>
+        /// <summary>缩放并平移视图，使整个画面都可见。</summary>
         public void ResetView()
         {
             _userAdjustedView = false;
@@ -267,7 +306,7 @@ namespace ImageStitcher.Controls
             Invalidate();
         }
 
-        /// <summary>Multiplies the zoom about a point in client coordinates.</summary>
+        /// <summary>以客户区坐标中的某一点为中心按倍数缩放。</summary>
         public void ZoomAt(Point screenAnchor, float factor)
         {
             if (!HasImages) return;
@@ -284,25 +323,25 @@ namespace ImageStitcher.Controls
             Invalidate();
         }
 
-        /// <summary>Maps a canvas point to client (screen) coordinates.</summary>
+        /// <summary>把画布坐标点映射为客户端（屏幕）坐标。</summary>
         public PointF CanvasToClient(PointF canvas)
         {
             return new PointF(canvas.X * _zoom + _pan.X, canvas.Y * _zoom + _pan.Y);
         }
 
-        /// <summary>Maps a client (screen) point to canvas coordinates.</summary>
+        /// <summary>把客户端（屏幕）坐标点映射为画布坐标。</summary>
         public PointF ClientToCanvas(Point screen)
         {
             return new PointF((screen.X - _pan.X) / _zoom, (screen.Y - _pan.Y) / _zoom);
         }
 
-        /// <summary>Current view scale factor.</summary>
+        /// <summary>当前视图的缩放比例。</summary>
         public float Zoom
         {
             get { return _zoom; }
         }
 
-        /// <summary>Union of both layers in canvas coordinates.</summary>
+        /// <summary>两个图层在画布坐标系中的并集。</summary>
         public RectangleF GetContentBounds()
         {
             RectangleF bounds = RectangleF.Empty;
@@ -315,7 +354,7 @@ namespace ImageStitcher.Controls
             return bounds;
         }
 
-        /// <summary>Axis aligned bounds of one layer after rotation, in canvas coordinates.</summary>
+        /// <summary>某个图层旋转后按轴对齐的外接矩形，使用画布坐标。</summary>
         public RectangleF GetLayerBounds(int index)
         {
             Layer layer = _layers[ClampIndex(index)];
@@ -329,7 +368,7 @@ namespace ImageStitcher.Controls
             return BoundingBox(corners);
         }
 
-        /// <summary>Index of the layer under the given client point, or -1. Front layer wins.</summary>
+        /// <summary>给定客户端点下方图层的索引，没有则返回 -1。上层图层优先。</summary>
         public int HitTest(Point screen)
         {
             if (HitLayer(_topLayer, screen)) return _topLayer;
@@ -339,10 +378,9 @@ namespace ImageStitcher.Controls
         }
 
         /// <summary>
-        /// Renders the composition at native resolution into a new bitmap.
-        /// <paramref name="opaqueTopLayer"/> forces the front layer to full opacity,
-        /// which is normally what you want for the exported result even if the slider
-        /// was pulled down while aligning. Returns null when there is nothing to draw.
+        /// 按原始分辨率把画面渲染到一个新的位图中。
+        /// <paramref name="opaqueTopLayer"/> 会强制上层图层完全不透明，对齐过程中即使
+        /// 把滑块调低过，导出的结果通常也希望如此。没有可绘制内容时返回 null。
         /// </summary>
         public Bitmap RenderComposite(bool opaqueTopLayer)
         {
@@ -381,10 +419,12 @@ namespace ImageStitcher.Controls
 
         #endregion
 
-        #region input
+        #region 输入处理
 
         protected override void OnMouseDown(MouseEventArgs e)
         {
+            // 点击画布同时也意味着要接管键盘焦点，这样用户拖动结束后方向键仍能继续微调。
+            if (!Focused) Focus();
             base.OnMouseDown(e);
 
             if (e.Button == MouseButtons.Middle)
@@ -474,26 +514,79 @@ namespace ImageStitcher.Controls
             ZoomAt(e.Location, e.Delta > 0 ? 1.15f : 1f / 1.15f);
         }
 
-        // WinForms delivers wheel messages to the focused control, so take focus when
-        // the pointer enters the canvas to make wheel zoom behave as users expect.
+        // WinForms 会把滚轮消息发送给拥有焦点的控件，因此指针进入画布时即获取焦点，
+        // 让滚轮缩放符合用户预期。
         protected override void OnMouseEnter(EventArgs e)
         {
             base.OnMouseEnter(e);
             if (HasImages && !Focused) Focus();
         }
 
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            if (e.Handled) return;
+
+            e.Handled = ApplyNudge(e.KeyCode, e.Shift);
+        }
+
+        /// <summary>
+        /// 方向键属于导航键，否则 Windows 会把它们交给父容器而不是画布。在这里接管
+        /// 它们，才能让画布停靠在视图面板内时微调仍然可用。
+        /// </summary>
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            Keys key = keyData & Keys.KeyCode;
+            if ((keyData & (Keys.Control | Keys.Alt)) == Keys.None &&
+                (key == Keys.Left || key == Keys.Right || key == Keys.Up || key == Keys.Down) &&
+                ApplyNudge(key, (keyData & Keys.Shift) == Keys.Shift))
+            {
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        /// <summary>
+        /// 按四个方向键之一微调上层图层。其他按键或没有可移动内容时返回 false，
+        /// 让该按键继续向下传递。
+        /// </summary>
+        private bool ApplyNudge(Keys key, bool fast)
+        {
+            if (!HasImages) return false;
+
+            float step = NudgeAmount * (fast ? 10f : 1f);
+            switch (key)
+            {
+                case Keys.Left:
+                    NudgeTopBy(-step, 0f);
+                    return true;
+                case Keys.Right:
+                    NudgeTopBy(step, 0f);
+                    return true;
+                case Keys.Up:
+                    NudgeTopBy(0f, -step);
+                    return true;
+                case Keys.Down:
+                    NudgeTopBy(0f, step);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         protected override void OnSizeChanged(EventArgs e)
         {
             base.OnSizeChanged(e);
 
-            // Refit after a resize until the user takes over the view. The canvas is
-            // created hidden, so its real size only arrives when manual mode is entered.
+            // 在用户接管视图之前，每次改变尺寸后都重新自适应。画布创建时是隐藏的，
+            // 只有进入手动模式时才会获得真实尺寸。
             if (_needsFit || (!_userAdjustedView && HasImages)) TryFit();
         }
 
         #endregion
 
-        #region painting
+        #region 绘制
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -509,7 +602,7 @@ namespace ImageStitcher.Controls
                 return;
             }
 
-            // Cheap interpolation while the user is actively dragging keeps it responsive.
+            // 用户正在拖动时使用开销更低的插值方式以保持流畅。
             bool interacting = _draggingLayer >= 0 || _panning;
             graphics.InterpolationMode = interacting
                 ? InterpolationMode.Bilinear
@@ -552,10 +645,10 @@ namespace ImageStitcher.Controls
 
         private static void DrawImage(Graphics graphics, Bitmap image, RectangleF destination, int alpha)
         {
-            // System.Drawing on .NET Framework has no ImageAttributes overload that takes a
-            // RectangleF destination, so both layers go through the same rounded Rectangle
-            // path. Using one path for every layer keeps the two images perfectly registered
-            // with each other whatever the opacity slider is set to.
+            // .NET Framework 上的 System.Drawing 没有接受 RectangleF 目标矩形的
+            // ImageAttributes 重载，因此两个图层都走同一条取整后的 Rectangle 路径。
+            // 所有图层共用一条路径，可以让两张图像无论不透明度滑块调到多少都保持
+            // 完全精确的配准关系。
             Rectangle target = Rectangle.Round(destination);
 
             using (ImageAttributes attributes = new ImageAttributes())
@@ -570,8 +663,8 @@ namespace ImageStitcher.Controls
         }
 
         /// <summary>
-        /// Dashed outline around the front layer, drawn in client space so the pen stays
-        /// one pixel wide regardless of zoom. Makes the z-order visible at a glance.
+        /// 围绕上层图层绘制的虚线轮廓，在客户端空间绘制，因此无论缩放比例如何画笔
+        /// 都保持一个像素宽。可以让叠放顺序一目了然。
         /// </summary>
         private void DrawFrontLayerOutline(Graphics graphics)
         {
@@ -597,7 +690,7 @@ namespace ImageStitcher.Controls
 
         #endregion
 
-        #region geometry helpers
+        #region 几何辅助方法
 
         private int TopAlpha
         {
@@ -614,7 +707,7 @@ namespace ImageStitcher.Controls
 
             if (layer.Rotation == 0f) return rect.Contains(point);
 
-            // Undo the rotation about the layer centre, then test the axis aligned rect.
+            // 先按图层中心反向抵消旋转，再对轴对齐矩形做命中判断。
             PointF centre = CentreOf(rect);
             double radians = -layer.Rotation * Math.PI / 180.0;
             float dx = point.X - centre.X;

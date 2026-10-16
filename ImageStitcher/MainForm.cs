@@ -2,16 +2,18 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using ImageStitcher.Imaging;
 using ImageStitcher.Stitching;
 
 namespace ImageStitcher
 {
     /// <summary>
-    /// Application shell. Every control is declared in MainForm.Designer.cs; this file
-    /// holds state and event handling only.
+    /// 应用程序主窗口。所有控件都在 MainForm.Designer.cs 中声明；本文件只保存状态
+    /// 与事件处理逻辑。
     /// </summary>
     public partial class MainForm : Form
     {
@@ -20,11 +22,15 @@ namespace ImageStitcher
         private string _pathA;
         private string _pathB;
 
+        // 每个图像槽位背后的 DICOM 转换说明（窗值 / 是否反相），显示在状态栏中，
+        // 这样窗值设置不当的图像能自我解释，而不会看起来像文件损坏。
+        private string _dicomInfoA;
+        private string _dicomInfoB;
+
         private Bitmap _autoResult;
         private Bitmap _matchPreview;
 
-        // Which bitmaps the manual canvas is currently holding, so we can tell when the
-        // canvas still refers to a disposed image.
+        // 手动画布当前持有的位图，用来判断画布是否仍指向已释放的图像。
         private Bitmap _canvasImageA;
         private Bitmap _canvasImageB;
 
@@ -44,12 +50,13 @@ namespace ImageStitcher
             lblOpacityValue.Text = "50%";
             manualCanvas.TopOpacityPercent = 50;
             manualCanvas.TopLayer = 1;
+            manualCanvas.NudgeAmount = 1;
 
             UpdateSourceInfo();
             SetManualMode(false);
         }
 
-        #region image loading
+        #region 图像加载
 
         private void btnLoadA_Click(object sender, EventArgs e)
         {
@@ -72,7 +79,8 @@ namespace ImageStitcher
             Bitmap loaded;
             try
             {
-                loaded = LoadBitmapUnlocked(path);
+                loaded = ReadImage(path, out string dicomInfo);
+                AdoptImage(slot, path, loaded, dicomInfo);
             }
             catch (Exception ex)
             {
@@ -80,35 +88,147 @@ namespace ImageStitcher
                 return;
             }
 
+            SetStatus(string.Format("已加载{0}：{1}（{2} × {3}）{4}",
+                slot == 0 ? "图1" : "图2", Path.GetFileName(path),
+                loaded.Width, loaded.Height, SlotNote(slot)));
+        }
+
+        /// <summary>
+        /// 把磁盘上任意受支持的文件转换成程序其余部分可用的位图。
+        /// DICOM 需要先经过 <see cref="DicomLoader"/>，因为它的像素数据还不是图像——
+        /// 必须先确定位深、光度解释和窗值，它才会看起来像一张图片。
+        /// </summary>
+        private static Bitmap ReadImage(string path, out string dicomInfo)
+        {
+            dicomInfo = null;
+
+            if (!IsDicomPath(path)) return LoadBitmapUnlocked(path);
+
+            Bitmap bitmap = DicomLoader.Load(path, out DicomLoader.DicomFrame frame);
+            dicomInfo = DicomDescription(frame);
+            return bitmap;
+        }
+
+        private void btnLoadDicomA_Click(object sender, EventArgs e)
+        {
+            LoadDicom(0);
+        }
+
+        private void btnLoadDicomB_Click(object sender, EventArgs e)
+        {
+            LoadDicom(1);
+        }
+
+        /// <summary>
+        /// DICOM 入口：既接受单个文件，也接受整个序列文件夹。一个序列就是每个断层
+        /// 一个文件，而本工具一次只能拼接两张图像，所以选择文件夹最终也必须落到
+        /// 断层图像的挑选上。
+        /// </summary>
+        private void LoadDicom(int slot)
+        {
+            if (_busy) return;
+
+            openDicomDialog.Title = slot == 0 ? "选择图1 的 DICOM 文件" : "选择图2 的 DICOM 文件";
+            if (openDicomDialog.ShowDialog(this) != DialogResult.OK) return;
+
+            string path = openDicomDialog.FileName;
+
+            Bitmap loaded;
+            try
+            {
+                loaded = DicomLoader.Load(path, out DicomLoader.DicomFrame frame);
+                AdoptImage(slot, path, loaded, DicomDescription(frame));
+            }
+            catch (Exception ex)
+            {
+                ShowWarning("无法读取 DICOM 文件：" + ex.Message);
+                return;
+            }
+
+            SetStatus(string.Format("已加载 DICOM 到{0}：{1}（{2} × {3}）{4}",
+                slot == 0 ? "图1" : "图2", Path.GetFileName(path),
+                loaded.Width, loaded.Height, SlotNote(slot)));
+        }
+
+        /// <summary>
+        /// 把刚解码出来的位图放入某个槽位，同时保持各预览图和手动画布状态一致，
+        /// 并释放被替换掉的位图。
+        /// </summary>
+        private void AdoptImage(int slot, string path, Bitmap loaded, string dicomInfo)
+        {
             Bitmap previous;
             if (slot == 0)
             {
                 previous = _imageA;
                 _imageA = loaded;
                 _pathA = path;
+                _dicomInfoA = dicomInfo;
             }
             else
             {
                 previous = _imageB;
                 _imageB = loaded;
                 _pathB = path;
+                _dicomInfoB = dicomInfo;
             }
 
             RefreshPreviews();
             SyncManualCanvasImages(false);
 
-            // Only safe once the picture boxes and the canvas have let go of it.
+            // 只有在图片框和画布都放开它之后才安全。
             if (previous != null) previous.Dispose();
 
             UpdateSourceInfo();
-            SetStatus(string.Format("已加载{0}：{1}（{2} × {3}）",
-                slot == 0 ? "图1" : "图2", Path.GetFileName(path),
-                loaded.Width, loaded.Height));
+        }
+
+        /// <summary>DICOM 文件允许使用的扩展名为真。</summary>
+        private static bool IsDicomPath(string path)
+        {
+            string extension = (Path.GetExtension(path) ?? string.Empty).ToLowerInvariant();
+            switch (extension)
+            {
+                case ".dcm":
+                case ".dicom":
+                case ".dic":
+                case ".ima":
+                case ".img":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static string DicomDescription(DicomLoader.DicomFrame frame)
+        {
+            if (frame == null) return null;
+
+            string description = string.Format(CultureInfo.CurrentCulture,
+                "DICOM {0} 位", frame.BitDepth);
+
+            if (frame.WindowWidth.HasValue && frame.WindowCentre.HasValue)
+            {
+                description += string.Format(CultureInfo.CurrentCulture,
+                    "，窗宽窗位 {0:0}/{1:0}", frame.WindowWidth.Value, frame.WindowCentre.Value);
+            }
+
+            if (frame.Inverted) description += "，MONOCHROME1 已反相";
+            if (frame.SliceLocation.HasValue)
+            {
+                description += string.Format(CultureInfo.CurrentCulture, "，位置 {0:0.###}", frame.SliceLocation.Value);
+            }
+
+            return description;
+        }
+
+        private string SlotNote(int slot)
+        {
+            string note = slot == 0 ? _dicomInfoA : _dicomInfoB;
+            return string.IsNullOrEmpty(note) ? string.Empty : "　[" + note + "]";
         }
 
         /// <summary>
-        /// Reads the file through memory so the source file is not locked, and
-        /// normalises it to 24bpp RGB which is what the rest of the app assumes.
+        /// 通过内存读取文件，以免锁定源文件，并把它规范化为程序其余部分所假定的
+        /// 24bpp RGB 格式。
         /// </summary>
         private static Bitmap LoadBitmapUnlocked(string path)
         {
@@ -151,6 +271,10 @@ namespace ImageStitcher
             _pathA = _pathB;
             _pathB = pathSwap;
 
+            string noteSwap = _dicomInfoA;
+            _dicomInfoA = _dicomInfoB;
+            _dicomInfoB = noteSwap;
+
             RefreshPreviews();
             SyncManualCanvasImages(true);
             UpdateSourceInfo();
@@ -187,7 +311,7 @@ namespace ImageStitcher
 
         #endregion
 
-        #region automatic stitching
+        #region 自动拼接
 
         private void btnAutoStitch_Click(object sender, EventArgs e)
         {
@@ -206,15 +330,14 @@ namespace ImageStitcher
             StitchOptions options = new StitchOptions();
             options.Algorithm = cboAlgorithm.SelectedIndex == 1 ? StitchAlgorithm.Orb : StitchAlgorithm.Sift;
 
-            // The result appears in the auto-mode tabs, so leave manual mode first.
+            // 结果显示在自动模式的选项卡中，因此先退出手动模式。
             if (_manualMode) SetManualMode(false);
 
-            // GDI+ bitmaps are not thread safe, and the previews - and the manual canvas -
-            // paint these very objects. The engine locks its inputs with LockBits and draws
-            // them for the match preview, so handing it the live bitmaps lets a repaint on
-            // the UI thread collide with the worker and fail with "位图区域已被锁定".
-            // The engine gets private snapshots instead; taking them here, while we are
-            // still on the UI thread, is what keeps the two threads off each other's bits.
+            // GDI+ 位图不是线程安全的，而预览图和手动画布都会绘制这些对象本身。
+            // 拼接引擎会用 LockBits 锁定输入并绘制它们以生成匹配预览图，因此如果把
+            // 正在使用的位图直接交给它，界面线程的重绘就会与工作线程冲突，抛出
+            // “位图区域已被锁定”。所以改为让引擎使用私有快照；在这里（仍处于界面
+            // 线程时）拍下快照，正是让两个线程互不触碰对方数据的关键。
             Bitmap referenceSnapshot = null;
             Bitmap movingSnapshot = null;
             try
@@ -250,7 +373,7 @@ namespace ImageStitcher
         }
 
         /// <summary>
-        /// Takes a private copy of a bitmap for the worker thread to own outright.
+        /// 为工作线程生成一份完全归其所有的位图私有副本。
         /// </summary>
         private static Bitmap Snapshot(Bitmap source)
         {
@@ -290,7 +413,7 @@ namespace ImageStitcher
             }
         }
 
-        /// <summary>Swaps the picture box image before disposing the old bitmap.</summary>
+        /// <summary>先替换图片框的图像，再释放旧位图。</summary>
         private static void ReplaceImage(ref Bitmap field, Bitmap replacement, PictureBox target)
         {
             Bitmap previous = field;
@@ -312,7 +435,7 @@ namespace ImageStitcher
 
         #endregion
 
-        #region manual stitching
+        #region 手动拼接
 
         private void btnManualMode_Click(object sender, EventArgs e)
         {
@@ -338,8 +461,14 @@ namespace ImageStitcher
             {
                 SyncManualCanvasImages(false);
                 manualCanvas.TopOpacityPercent = trkOpacity.Value;
+                manualCanvas.NudgeAmount = (int)numNudgeStep.Value;
                 SyncManualControlsFromCanvas();
-                SetStatus("手动模式：左键拖动图像对齐，双击图像置顶，中键拖动平移画布，滚轮缩放。");
+
+                // 把焦点交给画布，而不是留在用户刚点击的按钮上，这样方向键无需先点击
+                // 就能立即微调。
+                manualCanvas.Focus();
+
+                SetStatus("手动模式：左键拖动对齐，方向键微调（Shift+方向键 10 倍），双击置顶，中键平移，滚轮缩放。");
             }
             else
             {
@@ -351,8 +480,7 @@ namespace ImageStitcher
         }
 
         /// <summary>
-        /// Keeps the canvas pointing at the images that are actually alive, and
-        /// optionally restarts the arrangement.
+        /// 让画布始终指向真正存活的图像，并可选地重新开始摆放。
         /// </summary>
         private void SyncManualCanvasImages(bool forceReset)
         {
@@ -459,6 +587,50 @@ namespace ImageStitcher
             SyncManualControlsFromCanvas();
         }
 
+        private void numNudgeStep_ValueChanged(object sender, EventArgs e)
+        {
+            manualCanvas.NudgeAmount = (int)numNudgeStep.Value;
+        }
+
+        private void btnNudgeLeft_Click(object sender, EventArgs e)
+        {
+            NudgeTop(-1, 0);
+        }
+
+        private void btnNudgeRight_Click(object sender, EventArgs e)
+        {
+            NudgeTop(1, 0);
+        }
+
+        private void btnNudgeUp_Click(object sender, EventArgs e)
+        {
+            NudgeTop(0, -1);
+        }
+
+        private void btnNudgeDown_Click(object sender, EventArgs e)
+        {
+            NudgeTop(0, 1);
+        }
+
+        /// <summary>
+        /// 一次方向键按键的按钮等价实现，供更愿意点击而不愿按住键的用户使用。
+        /// </summary>
+        private void NudgeTop(int directionX, int directionY)
+        {
+            if (!EnsureManualReady()) return;
+
+            float step = manualCanvas.NudgeAmount;
+            manualCanvas.NudgeTopBy(directionX * step, directionY * step);
+            ReportTopOffset();
+        }
+
+        private void ReportTopOffset()
+        {
+            PointF offset = manualCanvas.GetOffset(manualCanvas.TopLayer);
+            SetStatus(string.Format("图{0} 位置：X {1:0.#}，Y {2:0.#}（方向键微调，Shift 加速）",
+                manualCanvas.TopLayer + 1, offset.X, offset.Y));
+        }
+
         private void btnResetPositions_Click(object sender, EventArgs e)
         {
             if (!EnsureManualReady()) return;
@@ -502,7 +674,7 @@ namespace ImageStitcher
 
         #endregion
 
-        #region saving and housekeeping
+        #region 保存与收尾工作
 
         private void SaveBitmap(Bitmap bitmap, string defaultFileName, string title)
         {
@@ -546,6 +718,8 @@ namespace ImageStitcher
             btnSaveResult.Enabled = !busy;
             btnLoadA.Enabled = !busy;
             btnLoadB.Enabled = !busy;
+            btnLoadDicomA.Enabled = !busy;
+            btnLoadDicomB.Enabled = !busy;
             btnSwap.Enabled = !busy;
             btnClear.Enabled = !busy;
             btnManualMode.Enabled = !busy;
@@ -571,8 +745,7 @@ namespace ImageStitcher
 
         private void ReleaseImages()
         {
-            // Unbind the viewers first: a picture box holding a disposed bitmap would
-            // fault on its next paint.
+            // 先解除各视图的绑定：图片框若持有已释放的位图，下次绘制就会出错。
             picPreviewA.Image = null;
             picPreviewB.Image = null;
             picResult.Image = null;

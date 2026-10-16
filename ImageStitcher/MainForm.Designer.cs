@@ -2,10 +2,10 @@ namespace ImageStitcher
 {
     partial class MainForm
     {
-        /// <summary>Required designer variable.</summary>
+        /// <summary>设计器所需的变量。</summary>
         private System.ComponentModel.IContainer components = null;
 
-        /// <summary>Clean up any resources being used.</summary>
+        /// <summary>清理正在使用的所有资源。</summary>
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -15,15 +15,15 @@ namespace ImageStitcher
             base.Dispose(disposing);
         }
 
-        #region Windows Form Designer generated code
+        #region Windows 窗体设计器生成的代码
 
         /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
+        /// 设计器支持所需的方法——请勿修改此方法的内容。
         /// </summary>
         private void InitializeComponent()
         {
             this.openImageDialog = new System.Windows.Forms.OpenFileDialog();
+            this.openDicomDialog = new System.Windows.Forms.OpenFileDialog();
             this.saveImageDialog = new System.Windows.Forms.SaveFileDialog();
             this.tableRoot = new System.Windows.Forms.TableLayoutPanel();
             this.tableHeader = new System.Windows.Forms.TableLayoutPanel();
@@ -31,6 +31,8 @@ namespace ImageStitcher
             this.tblSource = new System.Windows.Forms.TableLayoutPanel();
             this.btnLoadA = new System.Windows.Forms.Button();
             this.btnLoadB = new System.Windows.Forms.Button();
+            this.btnLoadDicomA = new System.Windows.Forms.Button();
+            this.btnLoadDicomB = new System.Windows.Forms.Button();
             this.btnSwap = new System.Windows.Forms.Button();
             this.btnClear = new System.Windows.Forms.Button();
             this.lblInfoA = new System.Windows.Forms.Label();
@@ -57,6 +59,12 @@ namespace ImageStitcher
             this.lblOpacityValue = new System.Windows.Forms.Label();
             this.btnManualMode = new System.Windows.Forms.Button();
             this.btnResetPositions = new System.Windows.Forms.Button();
+            this.lblNudge = new System.Windows.Forms.Label();
+            this.btnNudgeUp = new System.Windows.Forms.Button();
+            this.btnNudgeDown = new System.Windows.Forms.Button();
+            this.btnNudgeLeft = new System.Windows.Forms.Button();
+            this.btnNudgeRight = new System.Windows.Forms.Button();
+            this.numNudgeStep = new System.Windows.Forms.NumericUpDown();
             this.btnFitView = new System.Windows.Forms.Button();
             this.chkOpaqueExport = new System.Windows.Forms.CheckBox();
             this.btnExportManual = new System.Windows.Forms.Button();
@@ -86,6 +94,7 @@ namespace ImageStitcher
             this.grpManual.SuspendLayout();
             this.tblManual.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numRotation)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numNudgeStep)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trkOpacity)).BeginInit();
             this.tableContent.SuspendLayout();
             this.tablePreviews.SuspendLayout();
@@ -104,8 +113,19 @@ namespace ImageStitcher
             // 
             // openImageDialog
             // 
-            this.openImageDialog.Filter = "图像文件|*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff;*.webp|所有文件|*.*";
+            this.openImageDialog.Filter = "图像文件|*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff;*.webp|DICOM 文件|*.dcm;*.dicom;*.dic;*.ima;*.img|所有文件|*.*";
             this.openImageDialog.Title = "选择图像";
+            // 
+            // openDicomDialog
+            // 
+            // DICOM 序列通常是一个装着多个断层文件的文件夹，因此这个对话框同时兼作
+            // 文件夹选择器：选择文件名会加载该文件，选择文件夹名——ValidateNames
+            // 允许这样做——则会打开对应的断层列表。
+            this.openDicomDialog.CheckFileExists = false;
+            this.openDicomDialog.DefaultExt = "dcm";
+            this.openDicomDialog.Filter = "DICOM 文件|*.dcm;*.dicom;*.dic;*.ima;*.img|所有文件|*.*";
+            this.openDicomDialog.Title = "选择 DICOM 文件或序列文件夹";
+            this.openDicomDialog.ValidateNames = false;
             // 
             // saveImageDialog
             // 
@@ -125,7 +145,7 @@ namespace ImageStitcher
             this.tableRoot.Margin = new System.Windows.Forms.Padding(0);
             this.tableRoot.Name = "tableRoot";
             this.tableRoot.RowCount = 3;
-            this.tableRoot.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 196F));
+            this.tableRoot.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 232F));
             this.tableRoot.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableRoot.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.tableRoot.Size = new System.Drawing.Size(1340, 880);
@@ -164,27 +184,28 @@ namespace ImageStitcher
             // 
             // tblSource
             // 
-            this.tblSource.ColumnCount = 4;
-            this.tblSource.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.tblSource.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.tblSource.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.tblSource.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.tblSource.ColumnCount = 2;
+            this.tblSource.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.tblSource.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.tblSource.Controls.Add(this.btnLoadA, 0, 0);
             this.tblSource.Controls.Add(this.btnLoadB, 1, 0);
-            this.tblSource.Controls.Add(this.btnSwap, 2, 0);
-            this.tblSource.Controls.Add(this.btnClear, 3, 0);
-            this.tblSource.Controls.Add(this.lblInfoA, 0, 1);
-            this.tblSource.Controls.Add(this.lblInfoB, 0, 2);
+            this.tblSource.Controls.Add(this.btnLoadDicomA, 0, 1);
+            this.tblSource.Controls.Add(this.btnLoadDicomB, 1, 1);
+            this.tblSource.Controls.Add(this.btnSwap, 0, 2);
+            this.tblSource.Controls.Add(this.btnClear, 1, 2);
+            this.tblSource.Controls.Add(this.lblInfoA, 0, 3);
+            this.tblSource.Controls.Add(this.lblInfoB, 0, 4);
             this.tblSource.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tblSource.Location = new System.Drawing.Point(6, 29);
             this.tblSource.Margin = new System.Windows.Forms.Padding(0);
             this.tblSource.Name = "tblSource";
-            this.tblSource.RowCount = 4;
-            this.tblSource.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
+            this.tblSource.RowCount = 5;
+            this.tblSource.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.tblSource.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.tblSource.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.tblSource.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.tblSource.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.tblSource.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tblSource.Size = new System.Drawing.Size(226, 153);
+            this.tblSource.Size = new System.Drawing.Size(226, 189);
             this.tblSource.TabIndex = 0;
             // 
             // btnLoadA
@@ -192,7 +213,7 @@ namespace ImageStitcher
             this.btnLoadA.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnLoadA.Location = new System.Drawing.Point(3, 3);
             this.btnLoadA.Name = "btnLoadA";
-            this.btnLoadA.Size = new System.Drawing.Size(50, 30);
+            this.btnLoadA.Size = new System.Drawing.Size(107, 28);
             this.btnLoadA.TabIndex = 0;
             this.btnLoadA.Text = "加载图1";
             this.btnLoadA.UseVisualStyleBackColor = true;
@@ -201,21 +222,43 @@ namespace ImageStitcher
             // btnLoadB
             // 
             this.btnLoadB.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnLoadB.Location = new System.Drawing.Point(59, 3);
+            this.btnLoadB.Location = new System.Drawing.Point(116, 3);
             this.btnLoadB.Name = "btnLoadB";
-            this.btnLoadB.Size = new System.Drawing.Size(50, 30);
+            this.btnLoadB.Size = new System.Drawing.Size(107, 28);
             this.btnLoadB.TabIndex = 1;
             this.btnLoadB.Text = "加载图2";
             this.btnLoadB.UseVisualStyleBackColor = true;
             this.btnLoadB.Click += new System.EventHandler(this.btnLoadB_Click);
             // 
+            // btnLoadDicomA
+            // 
+            this.btnLoadDicomA.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLoadDicomA.Location = new System.Drawing.Point(3, 37);
+            this.btnLoadDicomA.Name = "btnLoadDicomA";
+            this.btnLoadDicomA.Size = new System.Drawing.Size(107, 28);
+            this.btnLoadDicomA.TabIndex = 2;
+            this.btnLoadDicomA.Text = "加载 DICOM 图1";
+            this.btnLoadDicomA.UseVisualStyleBackColor = true;
+            this.btnLoadDicomA.Click += new System.EventHandler(this.btnLoadDicomA_Click);
+            // 
+            // btnLoadDicomB
+            // 
+            this.btnLoadDicomB.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLoadDicomB.Location = new System.Drawing.Point(116, 37);
+            this.btnLoadDicomB.Name = "btnLoadDicomB";
+            this.btnLoadDicomB.Size = new System.Drawing.Size(107, 28);
+            this.btnLoadDicomB.TabIndex = 3;
+            this.btnLoadDicomB.Text = "加载 DICOM 图2";
+            this.btnLoadDicomB.UseVisualStyleBackColor = true;
+            this.btnLoadDicomB.Click += new System.EventHandler(this.btnLoadDicomB_Click);
+            // 
             // btnSwap
             // 
             this.btnSwap.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSwap.Location = new System.Drawing.Point(115, 3);
+            this.btnSwap.Location = new System.Drawing.Point(3, 71);
             this.btnSwap.Name = "btnSwap";
-            this.btnSwap.Size = new System.Drawing.Size(50, 30);
-            this.btnSwap.TabIndex = 2;
+            this.btnSwap.Size = new System.Drawing.Size(107, 26);
+            this.btnSwap.TabIndex = 4;
             this.btnSwap.Text = "交换";
             this.btnSwap.UseVisualStyleBackColor = true;
             this.btnSwap.Click += new System.EventHandler(this.btnSwap_Click);
@@ -223,10 +266,10 @@ namespace ImageStitcher
             // btnClear
             // 
             this.btnClear.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnClear.Location = new System.Drawing.Point(171, 3);
+            this.btnClear.Location = new System.Drawing.Point(116, 71);
             this.btnClear.Name = "btnClear";
-            this.btnClear.Size = new System.Drawing.Size(52, 30);
-            this.btnClear.TabIndex = 3;
+            this.btnClear.Size = new System.Drawing.Size(107, 26);
+            this.btnClear.TabIndex = 5;
             this.btnClear.Text = "清空";
             this.btnClear.UseVisualStyleBackColor = true;
             this.btnClear.Click += new System.EventHandler(this.btnClear_Click);
@@ -234,24 +277,24 @@ namespace ImageStitcher
             // lblInfoA
             // 
             this.lblInfoA.AutoEllipsis = true;
-            this.tblSource.SetColumnSpan(this.lblInfoA, 4);
+            this.tblSource.SetColumnSpan(this.lblInfoA, 2);
             this.lblInfoA.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblInfoA.Location = new System.Drawing.Point(3, 36);
+            this.lblInfoA.Location = new System.Drawing.Point(3, 100);
             this.lblInfoA.Name = "lblInfoA";
             this.lblInfoA.Size = new System.Drawing.Size(220, 24);
-            this.lblInfoA.TabIndex = 4;
+            this.lblInfoA.TabIndex = 6;
             this.lblInfoA.Text = "图1：未加载";
             this.lblInfoA.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblInfoB
             // 
             this.lblInfoB.AutoEllipsis = true;
-            this.tblSource.SetColumnSpan(this.lblInfoB, 4);
+            this.tblSource.SetColumnSpan(this.lblInfoB, 2);
             this.lblInfoB.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblInfoB.Location = new System.Drawing.Point(3, 60);
+            this.lblInfoB.Location = new System.Drawing.Point(3, 124);
             this.lblInfoB.Name = "lblInfoB";
-            this.lblInfoB.Size = new System.Drawing.Size(220, 24);
-            this.lblInfoB.TabIndex = 5;
+            this.lblInfoB.Size = new System.Drawing.Size(220, 65);
+            this.lblInfoB.TabIndex = 7;
             this.lblInfoB.Text = "图2：未加载";
             this.lblInfoB.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
@@ -399,8 +442,7 @@ namespace ImageStitcher
             this.tblManual.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 68F));
             this.tblManual.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 88F));
             this.tblManual.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tblManual.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tblManual.Controls.Add(this.lblTop, 0, 0);
+            this.tblManual.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));            this.tblManual.Controls.Add(this.lblTop, 0, 0);
             this.tblManual.Controls.Add(this.cboTopLayer, 1, 0);
             this.tblManual.Controls.Add(this.lblRotation, 2, 0);
             this.tblManual.Controls.Add(this.numRotation, 3, 0);
@@ -411,19 +453,26 @@ namespace ImageStitcher
             this.tblManual.Controls.Add(this.lblOpacityValue, 4, 1);
             this.tblManual.Controls.Add(this.btnManualMode, 0, 2);
             this.tblManual.Controls.Add(this.btnResetPositions, 3, 2);
-            this.tblManual.Controls.Add(this.btnFitView, 0, 3);
-            this.tblManual.Controls.Add(this.chkOpaqueExport, 2, 3);
-            this.tblManual.Controls.Add(this.btnExportManual, 4, 3);
+            this.tblManual.Controls.Add(this.lblNudge, 0, 3);
+            this.tblManual.Controls.Add(this.btnNudgeUp, 1, 3);
+            this.tblManual.Controls.Add(this.btnNudgeDown, 2, 3);
+            this.tblManual.Controls.Add(this.btnNudgeLeft, 3, 3);
+            this.tblManual.Controls.Add(this.btnNudgeRight, 4, 3);
+            this.tblManual.Controls.Add(this.numNudgeStep, 5, 3);
+            this.tblManual.Controls.Add(this.btnFitView, 0, 4);
+            this.tblManual.Controls.Add(this.chkOpaqueExport, 2, 4);
+            this.tblManual.Controls.Add(this.btnExportManual, 4, 4);
             this.tblManual.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tblManual.Location = new System.Drawing.Point(6, 29);
             this.tblManual.Margin = new System.Windows.Forms.Padding(0);
             this.tblManual.Name = "tblManual";
-            this.tblManual.RowCount = 4;
+            this.tblManual.RowCount = 5;
             this.tblManual.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.tblManual.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
-            this.tblManual.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
-            this.tblManual.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
-            this.tblManual.Size = new System.Drawing.Size(681, 153);
+            this.tblManual.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
+            this.tblManual.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.tblManual.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.tblManual.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.tblManual.Size = new System.Drawing.Size(681, 189);
             this.tblManual.TabIndex = 0;
             // 
             // lblTop
@@ -567,14 +616,92 @@ namespace ImageStitcher
             this.btnResetPositions.UseVisualStyleBackColor = true;
             this.btnResetPositions.Click += new System.EventHandler(this.btnResetPositions_Click);
             // 
+            // lblNudge
+            // 
+            this.lblNudge.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblNudge.Location = new System.Drawing.Point(3, 108);
+            this.lblNudge.Name = "lblNudge";
+            this.lblNudge.Size = new System.Drawing.Size(62, 34);
+            this.lblNudge.TabIndex = 11;
+            this.lblNudge.Text = "微调(px)";
+            this.lblNudge.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // btnNudgeUp
+            // 
+            this.btnNudgeUp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNudgeUp.Location = new System.Drawing.Point(71, 111);
+            this.btnNudgeUp.Name = "btnNudgeUp";
+            this.btnNudgeUp.Size = new System.Drawing.Size(102, 28);
+            this.btnNudgeUp.TabIndex = 12;
+            this.btnNudgeUp.Text = "▲ 上";
+            this.btnNudgeUp.UseVisualStyleBackColor = true;
+            this.btnNudgeUp.Click += new System.EventHandler(this.btnNudgeUp_Click);
+            // 
+            // btnNudgeDown
+            // 
+            this.btnNudgeDown.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNudgeDown.Location = new System.Drawing.Point(179, 111);
+            this.btnNudgeDown.Name = "btnNudgeDown";
+            this.btnNudgeDown.Size = new System.Drawing.Size(62, 28);
+            this.btnNudgeDown.TabIndex = 13;
+            this.btnNudgeDown.Text = "▼ 下";
+            this.btnNudgeDown.UseVisualStyleBackColor = true;
+            this.btnNudgeDown.Click += new System.EventHandler(this.btnNudgeDown_Click);
+            // 
+            // btnNudgeLeft
+            // 
+            this.btnNudgeLeft.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNudgeLeft.Location = new System.Drawing.Point(247, 111);
+            this.btnNudgeLeft.Name = "btnNudgeLeft";
+            this.btnNudgeLeft.Size = new System.Drawing.Size(82, 28);
+            this.btnNudgeLeft.TabIndex = 14;
+            this.btnNudgeLeft.Text = "◀ 左";
+            this.btnNudgeLeft.UseVisualStyleBackColor = true;
+            this.btnNudgeLeft.Click += new System.EventHandler(this.btnNudgeLeft_Click);
+            // 
+            // btnNudgeRight
+            // 
+            this.btnNudgeRight.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNudgeRight.Location = new System.Drawing.Point(335, 111);
+            this.btnNudgeRight.Name = "btnNudgeRight";
+            this.btnNudgeRight.Size = new System.Drawing.Size(168, 28);
+            this.btnNudgeRight.TabIndex = 15;
+            this.btnNudgeRight.Text = "▶ 右";
+            this.btnNudgeRight.UseVisualStyleBackColor = true;
+            this.btnNudgeRight.Click += new System.EventHandler(this.btnNudgeRight_Click);
+            // 
+            // numNudgeStep
+            // 
+            this.numNudgeStep.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.numNudgeStep.Location = new System.Drawing.Point(509, 111);
+            this.numNudgeStep.Maximum = new decimal(new int[] {
+            500,
+            0,
+            0,
+            0});
+            this.numNudgeStep.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.numNudgeStep.Name = "numNudgeStep";
+            this.numNudgeStep.Size = new System.Drawing.Size(169, 28);
+            this.numNudgeStep.TabIndex = 16;
+            this.numNudgeStep.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.numNudgeStep.ValueChanged += new System.EventHandler(this.numNudgeStep_ValueChanged);
+            // 
             // btnFitView
             // 
             this.tblManual.SetColumnSpan(this.btnFitView, 2);
             this.btnFitView.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnFitView.Location = new System.Drawing.Point(3, 119);
+            this.btnFitView.Location = new System.Drawing.Point(3, 145);
             this.btnFitView.Name = "btnFitView";
-            this.btnFitView.Size = new System.Drawing.Size(170, 31);
-            this.btnFitView.TabIndex = 11;
+            this.btnFitView.Size = new System.Drawing.Size(170, 41);
+            this.btnFitView.TabIndex = 17;
             this.btnFitView.Text = "适应窗口";
             this.btnFitView.UseVisualStyleBackColor = true;
             this.btnFitView.Click += new System.EventHandler(this.btnFitView_Click);
@@ -586,10 +713,10 @@ namespace ImageStitcher
             this.chkOpaqueExport.CheckState = System.Windows.Forms.CheckState.Checked;
             this.tblManual.SetColumnSpan(this.chkOpaqueExport, 2);
             this.chkOpaqueExport.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.chkOpaqueExport.Location = new System.Drawing.Point(179, 119);
+            this.chkOpaqueExport.Location = new System.Drawing.Point(179, 145);
             this.chkOpaqueExport.Name = "chkOpaqueExport";
-            this.chkOpaqueExport.Size = new System.Drawing.Size(150, 31);
-            this.chkOpaqueExport.TabIndex = 12;
+            this.chkOpaqueExport.Size = new System.Drawing.Size(150, 41);
+            this.chkOpaqueExport.TabIndex = 18;
             this.chkOpaqueExport.Text = "导出时顶层不透明";
             this.chkOpaqueExport.UseVisualStyleBackColor = true;
             // 
@@ -597,10 +724,10 @@ namespace ImageStitcher
             // 
             this.tblManual.SetColumnSpan(this.btnExportManual, 2);
             this.btnExportManual.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnExportManual.Location = new System.Drawing.Point(335, 119);
+            this.btnExportManual.Location = new System.Drawing.Point(335, 145);
             this.btnExportManual.Name = "btnExportManual";
-            this.btnExportManual.Size = new System.Drawing.Size(343, 31);
-            this.btnExportManual.TabIndex = 13;
+            this.btnExportManual.Size = new System.Drawing.Size(343, 41);
+            this.btnExportManual.TabIndex = 19;
             this.btnExportManual.Text = "导出拼接图…";
             this.btnExportManual.UseVisualStyleBackColor = true;
             this.btnExportManual.Click += new System.EventHandler(this.btnExportManual_Click);
@@ -826,6 +953,7 @@ namespace ImageStitcher
             this.tblManual.ResumeLayout(false);
             this.tblManual.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numRotation)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numNudgeStep)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.trkOpacity)).EndInit();
             this.tableContent.ResumeLayout(false);
             this.tablePreviews.ResumeLayout(false);
@@ -849,12 +977,15 @@ namespace ImageStitcher
 
         private System.Windows.Forms.TableLayoutPanel tableRoot;
         private System.Windows.Forms.OpenFileDialog openImageDialog;
+        private System.Windows.Forms.OpenFileDialog openDicomDialog;
         private System.Windows.Forms.SaveFileDialog saveImageDialog;
         private System.Windows.Forms.TableLayoutPanel tableHeader;
         private System.Windows.Forms.GroupBox grpSource;
         private System.Windows.Forms.TableLayoutPanel tblSource;
         private System.Windows.Forms.Button btnLoadA;
         private System.Windows.Forms.Button btnLoadB;
+        private System.Windows.Forms.Button btnLoadDicomA;
+        private System.Windows.Forms.Button btnLoadDicomB;
         private System.Windows.Forms.Button btnSwap;
         private System.Windows.Forms.Button btnClear;
         private System.Windows.Forms.Label lblInfoA;
@@ -881,6 +1012,12 @@ namespace ImageStitcher
         private System.Windows.Forms.Label lblOpacityValue;
         private System.Windows.Forms.Button btnManualMode;
         private System.Windows.Forms.Button btnResetPositions;
+        private System.Windows.Forms.Label lblNudge;
+        private System.Windows.Forms.Button btnNudgeUp;
+        private System.Windows.Forms.Button btnNudgeDown;
+        private System.Windows.Forms.Button btnNudgeLeft;
+        private System.Windows.Forms.Button btnNudgeRight;
+        private System.Windows.Forms.NumericUpDown numNudgeStep;
         private System.Windows.Forms.Button btnFitView;
         private System.Windows.Forms.CheckBox chkOpaqueExport;
         private System.Windows.Forms.Button btnExportManual;

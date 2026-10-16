@@ -2,7 +2,7 @@ using System;
 
 namespace ImageStitcher.Stitching
 {
-    /// <summary>Tuning knobs for <see cref="AutoStitcher"/>.</summary>
+    /// <summary><see cref="AutoStitcher"/> 的可调参数。</summary>
     public sealed class StitchOptions
     {
         public StitchOptions()
@@ -10,41 +10,41 @@ namespace ImageStitcher.Stitching
             Algorithm = StitchAlgorithm.Sift;
             RatioThreshold = 0.75;
             RansacReprojectionThreshold = 3.0;
-            SiftFeatureCount = 0;      // 0 = unrestricted, the SIFT default
+            SiftFeatureCount = 0;      // 0 = 不限制，即 SIFT 的默认值
             OrbFeatureCount = 4000;
             FeatherWidth = 48.0;
             MaxCanvasSide = 30000;
             MaxCanvasPixels = 120000000L;
         }
 
-        /// <summary>Which detector/descriptor pair to use.</summary>
+        /// <summary>使用哪一种检测器与描述子组合。</summary>
         public StitchAlgorithm Algorithm { get; set; }
 
         /// <summary>
-        /// Lowe ratio test threshold. A match is kept only when the best distance is
-        /// below this fraction of the second best. Lower is stricter.
+        /// Lowe 比值测试阈值。只有当最近距离小于次近距离的该比例时才保留该匹配。
+        /// 数值越小越严格。
         /// </summary>
         public double RatioThreshold { get; set; }
 
-        /// <summary>RANSAC inlier threshold in pixels for the homography fit.</summary>
+        /// <summary>单应矩阵拟合时 RANSAC 的内点阈值，单位为像素。</summary>
         public double RansacReprojectionThreshold { get; set; }
 
-        /// <summary>Requested SIFT feature count; 0 keeps every feature found.</summary>
+        /// <summary>请求的 SIFT 特征点数量；为 0 时保留检测到的全部特征点。</summary>
         public int SiftFeatureCount { get; set; }
 
-        /// <summary>Requested ORB feature count.</summary>
+        /// <summary>请求的 ORB 特征点数量。</summary>
         public int OrbFeatureCount { get; set; }
 
         /// <summary>
-        /// Seam feather width in pixels. Distance weights are clamped to this so the
-        /// blend stays a fixed width instead of growing with the overlap area.
+        /// 接缝羽化宽度，单位为像素。距离权重会被限制在该值以内，使融合区域保持
+        /// 固定宽度，而不会随重叠面积增大。
         /// </summary>
         public double FeatherWidth { get; set; }
 
-        /// <summary>Refuse to build a panorama whose width or height exceeds this.</summary>
+        /// <summary>当全景图的宽度或高度超过该值时，拒绝生成结果。</summary>
         public int MaxCanvasSide { get; set; }
 
-        /// <summary>Refuse to build a panorama with more pixels than this.</summary>
+        /// <summary>当全景图的像素总数超过该值时，拒绝生成结果。</summary>
         public long MaxCanvasPixels { get; set; }
     }
 }
